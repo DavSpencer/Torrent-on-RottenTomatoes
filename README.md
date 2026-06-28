@@ -1,13 +1,16 @@
 # Rotten Links
 
 > Torrent search icons injected directly into [Rotten Tomatoes](https://www.rottentomatoes.com/) — browse, find, grab.
-https://raw.githubusercontent.com/DavSpencer/Torrent-on-RottenTomatoes/refs/heads/main/Screenshot-1.png
-> https://raw.githubusercontent.com/DavSpencer/Torrent-on-RottenTomatoes/refs/heads/main/Screenshot-2.png
-> https://raw.githubusercontent.com/DavSpencer/Torrent-on-RottenTomatoes/refs/heads/main/Screenshot-3.png
 
 ![Version](https://img.shields.io/badge/version-2.42-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-Tampermonkey%20%7C%20Violentmonkey-orange)
+
+<p align="center">
+  <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-1.png?raw=true" width="32%" />
+  <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-2.png?raw=true" width="32%" />
+  <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-3.png?raw=true" width="32%" />
+</p>
 
 ---
 
