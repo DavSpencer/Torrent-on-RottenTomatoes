@@ -8,8 +8,8 @@
 
 <p align="center">
   <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-1.png?raw=true" width="32%" />
-  <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-2.png?raw=true" width="32%" />
   <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-3.png?raw=true" width="32%" />
+  <img src="https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-2.png?raw=true" width="32%" />
 </p>
 
 ---
