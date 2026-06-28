@@ -57,9 +57,9 @@ You can add any site you want through the configurator.
 
 ## Installation
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/) in your browser
-2. Click **[Install Script](#)** *(add your Greasy Fork link here)*
-3. Visit [rottentomatoes.com](https://www.rottentomatoes.com/) — icons appear automatically
+1. Install [Tampermonkey](https://www.tampermonkey.net/)
+2. Click **[Install Script](https://greasyfork.org/en/scripts/584671-torrent-on-rottentomatoes)**
+3. Visit [rottentomatoes.com](https://www.rottentomatoes.com/browse/movies_at_home/) — icons appear automatically
 
 ---
 
