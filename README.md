@@ -1,6 +1,9 @@
 # Rotten Links
 
 > Torrent search icons injected directly into [Rotten Tomatoes](https://www.rottentomatoes.com/) — browse, find, grab.
+> https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-1.png
+> https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-1.png
+> https://github.com/DavSpencer/Torrent-on-RottenTomatoes/blob/main/Screenshot-1.png
 
 ![Version](https://img.shields.io/badge/version-2.42-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
