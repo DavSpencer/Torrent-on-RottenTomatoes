@@ -74,7 +74,7 @@
       label: "KingMovie",
       url: "https://kiingmovie.com/{imdb}/{title-slug}/",
       urlAlt:
-        "https://kiingmovie.com/category1/?searchCategory=-1&search={title-slug}",
+        "https://kiingmovie.com/category1/?searchCategory=-1&search={title}",
       enabled: true,
       domainCheck: false,
     },
