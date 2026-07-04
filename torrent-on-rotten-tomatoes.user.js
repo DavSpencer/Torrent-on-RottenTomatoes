@@ -1,14 +1,18 @@
 // ==UserScript==
 // @name         Torrent on RottenTomatoes
 // @namespace    http://tampermonkey.net/
-// @version      2.42
-// @description  Adds torrent search icons on Rotten Tomatoes. Removes cookie consent popup. Supports live-search sites via hash injection. Shows IMDb rating. Fully configurable via Tampermonkey menu.
+// @version      2.43
+// @description  Adds torrent search icons on Rotten Tomatoes. Removes cookie consent popup. Generic live-search hash injection works on ANY site with a search box (no hardcoded target). Shows IMDb rating. Fully configurable via Tampermonkey menu.
 // @author       Micro
 // @match        https://www.rottentomatoes.com/*
 // @match        https://editorial.rottentomatoes.com/*
+// @match        *://*/*
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
 // @icon         https://www.rottentomatoes.com/assets/pizza-pie/head-assets/images/apple-touch-icon-180.jpg
+// @downloadURL https://update.greasyfork.org/scripts/584671/Torrent%20on%20RottenTomatoes.user.js
+// @updateURL https://update.greasyfork.org/scripts/584671/Torrent%20on%20RottenTomatoes.meta.js
+// @license      GPL-3.0-or-later
 // ==/UserScript==
 
 (function () {
@@ -28,6 +32,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "btdig",
@@ -36,6 +41,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: true,
+      liveSearch: false,
     },
     {
       id: "bt4g",
@@ -44,6 +50,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "uindex",
@@ -52,6 +59,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "bitsearch",
@@ -60,6 +68,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "pahe",
@@ -68,6 +77,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "kingmovie",
@@ -77,6 +87,7 @@
         "https://kiingmovie.com/category1/?searchCategory=-1&search={title}",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "digimoviez",
@@ -85,6 +96,7 @@
       urlAlt: "https://digimoviez.com/?s={title-slug}",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
     {
       id: "film2media",
@@ -93,6 +105,7 @@
       urlAlt: "",
       enabled: true,
       domainCheck: false,
+      liveSearch: false,
     },
   ];
 
@@ -100,6 +113,7 @@
     omdbApiKey: "",
     domainCheckTimeout: 4000,
     cacheTtlDays: 15,
+    enableLiveSearch: true,
     icons: DEFAULT_ICONS,
   };
 
@@ -132,6 +146,7 @@
       const merged = Object.assign(structuredClone(DEFAULT_SETTINGS), saved);
       merged.icons = merged.icons.map(({ favicon: _removed, ...ic }) => ({
         urlAlt: "",
+        liveSearch: false,
         ...ic,
       }));
       return merged;
@@ -170,7 +185,7 @@
             #rt-cfg-modal {
                 background:#1a1b1e; color:#e0e0e0;
                 border:1px solid #333; border-radius:10px;
-                width:min(780px,96vw); max-height:88vh;
+                width:min(820px,96vw); max-height:88vh;
                 display:flex; flex-direction:column;
                 box-shadow:0 24px 64px rgba(0,0,0,.8);
                 overflow:hidden;
@@ -215,7 +230,7 @@
 
             .rt-card-top {
                 display:grid;
-                grid-template-columns: 18px 24px 1fr 36px 28px 28px;
+                grid-template-columns: 18px 24px 1fr 36px 36px 28px 28px;
                 align-items:center; gap:8px; padding:8px 12px;
             }
             .rt-card-urls {
@@ -245,7 +260,7 @@
             .rt-icon-btn.rt-del:hover { color:#e54a4a; }
             .rt-icon-btn:disabled { opacity:.2; cursor:not-allowed; pointer-events:none; }
 
-            .rt-icon-list-header { display:grid; grid-template-columns:18px 24px 1fr 36px 28px 28px; gap:8px; padding:0 12px 5px; font-size:9px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:#555; }
+            .rt-icon-list-header { display:grid; grid-template-columns:18px 24px 1fr 36px 36px 28px 28px; gap:8px; padding:0 12px 5px; font-size:9px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:#555; }
 
             #rt-cfg-add-section { background:#1e1f23; border:1px dashed #333; border-radius:8px; padding:12px; margin-bottom:12px; }
             .rt-add-row1 { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
@@ -282,7 +297,7 @@
             <div id="rt-cfg-header">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
                 <h2>Torrent on RottenTomatoes</h2>
-                <span class="rt-ver">v2.42 — Settings</span>
+                <span class="rt-ver">v2.43 — Settings</span>
                 <button id="rt-cfg-close" title="Close (Esc)">✕</button>
             </div>
             <div id="rt-cfg-tabs">
@@ -296,7 +311,7 @@
                     <div class="rt-icon-list-header">
                         <span></span><span>Icon</span>
                         <span>Label</span>
-                        <span title="Domain check">🛡</span><span title="Toggle">On</span><span></span>
+                        <span title="Domain check">🛡</span><span title="Live search">🔎</span><span title="Toggle">On</span><span></span>
                     </div>
                     <div id="rt-cfg-icon-list"></div>
 
@@ -327,7 +342,8 @@
                         <b>{imdb}</b> IMDb ID (tt…) &nbsp;·&nbsp;
                         <b>{slug}</b> hyphen-title-year &nbsp;·&nbsp;
                         <b>{title-slug}</b> hyphen-title only (Recommended)<br>
-                        <span class="rt-hint-alt">* ALT Key + click any icon to open its Alt URL. If main URL uses {imdb} and lookup fails, Alt URL opens automatically.</span>
+                        <span class="rt-hint-alt">* ALT Key + click any icon to open its Alt URL. If main URL uses {imdb} and lookup fails, Alt URL opens automatically.</span><br>
+                        <span class="rt-hint-alt">* 🔎 Live Search: auto-fills the Alt URL with a link that opens the icon's site and types your query straight into that site's own search box (works on any site that has a detectable search field, and requires the broad site-permission to be granted in Tampermonkey).</span>
                     </div>
                 </div>
 
@@ -355,6 +371,18 @@
                             <label style="font-size:11px;color:#666;min-width:0;flex:1">
                                 Icons marked 🛡 are probed once per session. If the domain is unreachable a warning triangle replaces the favicon. The click still opens the site.
                             </label>
+                        </div>
+                    </fieldset>
+                    <fieldset class="rt-field-group">
+                        <legend>Live Search</legend>
+                        <div class="rt-field-row">
+                            <label style="font-size:11px;color:#666;min-width:0;flex:1">
+                                When an icon's 🔎 Live Search is enabled, Alt+click opens the target site with a hash marker. This script then runs on that site (any site, no hardcoded target) and looks for its search box to type your query in automatically.
+                            </label>
+                        </div>
+                        <div class="rt-field-row">
+                            <label>Enable Live Search</label>
+                            <input type="checkbox" id="rt-cfg-livesearch-enabled" style="accent-color:#f5c518;width:15px;height:15px;cursor:pointer;" />
                         </div>
                     </fieldset>
                 </div>
@@ -454,6 +482,33 @@
         });
         dcWrap.appendChild(dcCheck);
 
+        // ── Live Search checkbox ──────────────────────────────────────────
+        // Ticking this derives the icon's domain from its main URL and
+        // auto-fills the Alt URL with a generic "#rt-live-search=" hash
+        // link. No site is hardcoded — any domain works as long as this
+        // script (broad @match) can find a search box there at runtime.
+        const lsWrap = document.createElement("label");
+        lsWrap.style.cssText =
+          "display:flex;align-items:center;justify-content:center;cursor:pointer;";
+        lsWrap.title = isCopy
+          ? "Not applicable to this icon"
+          : "Auto-fill Alt URL with a live-search link for this icon's site. Alt+click will try to type your query into that site's own search box.";
+        const lsCheck = document.createElement("input");
+        lsCheck.type = "checkbox";
+        lsCheck.checked = !!ic.liveSearch;
+        lsCheck.disabled = isCopy;
+        lsCheck.style.cssText =
+          "accent-color:#f5c518;width:13px;height:13px;cursor:pointer;";
+        lsCheck.addEventListener("change", (e) => {
+          draft.icons[idx].liveSearch = e.target.checked;
+          if (e.target.checked) {
+            const generated = computeLiveSearchAltUrl(draft.icons[idx].url);
+            if (generated) draft.icons[idx].urlAlt = generated;
+          }
+          buildIconRows();
+        });
+        lsWrap.appendChild(lsCheck);
+
         const toggle = document.createElement("button");
         toggle.className = "rt-toggle" + (ic.enabled ? " rt-on" : "");
         toggle.title = ic.enabled
@@ -481,6 +536,7 @@
         top.appendChild(fav);
         top.appendChild(labelEl);
         top.appendChild(dcWrap);
+        top.appendChild(lsWrap);
         top.appendChild(toggle);
         top.appendChild(del);
         card.appendChild(top);
@@ -488,6 +544,11 @@
         if (!isCopy) {
           const urls = document.createElement("div");
           urls.className = "rt-card-urls";
+
+          // Referenced by mainIn's input handler below so that ticking
+          // "Live Search" keeps auto-syncing the Alt URL as the main URL
+          // changes, without needing a full row rebuild on every keystroke.
+          let altIn;
 
           const mainWrap = document.createElement("div");
           mainWrap.className = "rt-url-wrap";
@@ -500,6 +561,13 @@
           mainIn.placeholder = "Search URL / template";
           mainIn.addEventListener("input", (e) => {
             draft.icons[idx].url = e.target.value;
+            if (draft.icons[idx].liveSearch) {
+              const generated = computeLiveSearchAltUrl(e.target.value);
+              if (generated) {
+                draft.icons[idx].urlAlt = generated;
+                if (altIn) altIn.value = generated;
+              }
+            }
             const urlToUse = e.target.value || draft.icons[idx].urlAlt;
             try {
               fav.src = `https://www.google.com/s2/favicons?domain=${new URL(urlToUse).hostname}&sz=32`;
@@ -513,7 +581,7 @@
           const altLbl = document.createElement("span");
           altLbl.className = "rt-url-label rt-url-alt-label";
           altLbl.textContent = "Alt URL (Alt+click)";
-          const altIn = document.createElement("input");
+          altIn = document.createElement("input");
           altIn.className = "rt-input";
           altIn.value = ic.urlAlt || "";
           altIn.placeholder = "Optional fallback";
@@ -588,6 +656,7 @@
         urlAlt,
         enabled: true,
         domainCheck: false,
+        liveSearch: false,
       });
       document.getElementById("rt-add-label").value = "";
       addUrlInput.value = "";
@@ -603,6 +672,8 @@
     document.getElementById("rt-cfg-omdb").value = draft.omdbApiKey;
     document.getElementById("rt-cfg-cache-ttl").value = draft.cacheTtlDays;
     document.getElementById("rt-cfg-timeout").value = draft.domainCheckTimeout;
+    document.getElementById("rt-cfg-livesearch-enabled").checked =
+      draft.enableLiveSearch !== false;
     document.getElementById("rt-cfg-omdb").addEventListener("input", (e) => {
       draft.omdbApiKey = e.target.value.trim();
     });
@@ -617,6 +688,11 @@
         parseInt(e.target.value) || 4000,
       );
     });
+    document
+      .getElementById("rt-cfg-livesearch-enabled")
+      .addEventListener("change", (e) => {
+        draft.enableLiveSearch = e.target.checked;
+      });
 
     document.querySelectorAll(".rt-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -645,6 +721,7 @@
       DOMAIN_CHECK_TIMEOUT = CFG.domainCheckTimeout;
       OMDB_API_KEY_live = CFG.omdbApiKey;
       CACHE_TTL_MS_live = CFG.cacheTtlDays * 24 * 3600 * 1000;
+      ENABLE_LIVE_SEARCH_live = CFG.enableLiveSearch !== false;
 
       // ── Rebuild all injected UI in-place, no page refresh needed ──
 
@@ -727,6 +804,8 @@
       document.getElementById("rt-cfg-cache-ttl").value = draft.cacheTtlDays;
       document.getElementById("rt-cfg-timeout").value =
         draft.domainCheckTimeout;
+      document.getElementById("rt-cfg-livesearch-enabled").checked =
+        draft.enableLiveSearch;
       buildIconRows();
     });
 
@@ -759,6 +838,7 @@
   let OMDB_API_KEY_live = CFG.omdbApiKey;
   let CACHE_TTL_MS_live = CFG.cacheTtlDays * 24 * 3600 * 1000;
   let DOMAIN_CHECK_TIMEOUT = CFG.domainCheckTimeout;
+  let ENABLE_LIVE_SEARCH_live = CFG.enableLiveSearch !== false;
 
   const CACHE_PREFIX = "rt_imdb_";
 
@@ -788,9 +868,6 @@
   const memCache = new Map();
 
   // ─── OMDb lookup strategies ───────────────────────────────────────────────
-  // FIX: Improved OMDb search — tries exact title match, then with type=movie,
-  // then type=series, then a broader search without type filter. Returns the
-  // best result by comparing normalised titles and preferring the year match.
 
   function normaliseTitle(t) {
     return t
@@ -808,7 +885,6 @@
     return d.Response === "True" ? d : null;
   }
 
-  // Direct title lookup — tries exact title, returns rating+ID if found.
   async function omdbDirectLookup(title, year, type) {
     const params = { t: title };
     if (year) params.y = year;
@@ -820,8 +896,6 @@
     return null;
   }
 
-  // Search-then-fetch: runs an OMDb search query, picks the best match, then
-  // fetches full details for that item to get the rating.
   async function omdbSearchLookup(title, year, type) {
     const params = { s: title };
     if (year) params.y = year;
@@ -831,18 +905,15 @@
 
     const normQuery = normaliseTitle(title);
 
-    // Score each result: exact title match scores higher, year match scores higher.
     const scored = sd.Search.map((item) => {
       let score = 0;
       if (normaliseTitle(item.Title) === normQuery) score += 10;
       if (year && item.Year && item.Year.includes(year)) score += 5;
-      // prefer exact type when requested
       if (type && item.Type === type) score += 2;
       return { item, score };
     });
     scored.sort((a, b) => b.score - a.score);
 
-    // Try the top candidates in order (up to 3) and return the first with a rating.
     for (const { item } of scored.slice(0, 3)) {
       const dd = await omdbFetch({ i: item.imdbID });
       if (dd && dd.imdbRating && dd.imdbRating !== "N/A") {
@@ -853,9 +924,6 @@
   }
 
   // ─── Main fetch entry point ───────────────────────────────────────────────
-  // FIX: Expanded lookup cascade — tries movie & series types explicitly so
-  // TV shows on the browse page (which have no {type} hint) are also found.
-  // Year variants are tried per-strategy, not just once at the top level.
 
   async function fetchImdbRating(title, rtYear) {
     const cacheKey = title + "|" + (rtYear || "");
@@ -866,7 +934,6 @@
     const promise = (async () => {
       const cleanTitle = title.replace(/[():'".\/\\|\[\]]/g, "").trim();
 
-      // Build year candidates: provided year, year-1, year-2, and no year.
       const yearCandidates = [];
       if (rtYear) {
         const y = parseInt(rtYear, 10);
@@ -876,14 +943,10 @@
           yearCandidates.push(String(y - 2));
         }
       }
-      yearCandidates.push(""); // always try without year as last resort
+      yearCandidates.push("");
 
-      // De-duplicate while preserving order.
       const years = [...new Set(yearCandidates)];
 
-      // Strategy order: direct lookup (movie) → direct (series) → direct (any)
-      //                 → search (movie) → search (series) → search (any)
-      // For each strategy we iterate all year candidates.
       const strategies = [
         (y) => omdbDirectLookup(cleanTitle, y, "movie"),
         (y) => omdbDirectLookup(cleanTitle, y, "series"),
@@ -944,12 +1007,6 @@
   }
 
   // ─── IMDb injection for browse-page caption links ─────────────────────────
-  // FIX: Year extraction now reads the full text content of the date element
-  // and pulls any 4-digit number — handles "Streaming Jun 19, 2026",
-  // "Oct 15, 2025", etc. If no 4-digit year is present (e.g. "Latest Episode:
-  // Jun 17") it falls back to empty string, and the lookup cascade handles it.
-  // FIX: Badge is now appended directly to the caption link when score-pairs
-  // is missing or already wrapped, so it always appears regardless of DOM state.
 
   async function injectImdbIntoCaptionLink(captionLink) {
     if (captionLink.dataset.imdbAdded) return;
@@ -961,8 +1018,6 @@
     const rawTitle = titleEl?.textContent?.trim() || "";
     if (!rawTitle) return;
 
-    // FIX: Extract year from date text — any 4-digit number wins.
-    // "Streaming Jun 19, 2026" → "2026", "Latest Episode: Jun 17" → ""
     const dateEl = captionLink.querySelector(
       '[data-qa="discovery-media-list-item-start-date"]',
     );
@@ -975,7 +1030,6 @@
 
     const badge = buildImdbBadge(result.imdbRating, result.imdbID);
 
-    // Try to insert the badge alongside the existing score-pairs element.
     const scorePairs = captionLink.querySelector(
       "score-pairs-deprecated, score-pairs",
     );
@@ -993,13 +1047,10 @@
       scorePairs &&
       scorePairs.parentElement?.classList.contains("rt-score-row")
     ) {
-      // Already wrapped — just append the badge if not already there.
       if (!scorePairs.parentElement.querySelector(".rt-imdb-badge")) {
         scorePairs.parentElement.appendChild(badge);
       }
     } else {
-      // No score-pairs at all — append badge before the title text.
-      // FIX: Fall back to inserting at the top of the caption link.
       captionLink.insertBefore(badge, captionLink.firstChild);
     }
   }
@@ -1018,10 +1069,6 @@
       removeCookieBanner();
       cookieObserver.disconnect();
     }
-  });
-  cookieObserver.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1111,12 +1158,22 @@
       .replace("{year}", encodeURIComponent(bareYear));
   }
 
+  // Derives a generic "open the site + live-search this query" Alt URL from
+  // any icon's main URL. No domain is hardcoded — this works for whatever
+  // domain the user has put in the main URL field.
+  function computeLiveSearchAltUrl(mainUrl) {
+    try {
+      const u = new URL(mainUrl);
+      return `${u.protocol}//${u.hostname}/#rt-live-search={name+}`;
+    } catch (_) {
+      return "";
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ─── ICON BUILDER ─────────────────────────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // FIX: extractBareYear now accepts any 4-digit year string, not just exactly
-  // 4 digits with start/end anchors. Handles "2026", "S01" (→ ""), etc.
   function extractBareYear(rawYear) {
     return String(rawYear || "").match(/\b(20\d{2}|19\d{2})\b/)?.[1] || "";
   }
@@ -1214,11 +1271,10 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ─── PAGE LOGIC ───────────────────────────────────────────────────────────
+  // ─── PAGE LOGIC (Rotten Tomatoes only) ────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
 
   const IS_EDITORIAL = location.hostname === "editorial.rottentomatoes.com";
-  const TARGET_ORIGIN = "https://www.f2me.top/";
 
   const SELECTORS = {
     year: 'span.meta-value, rt-text[slot="release"], span.year, time, [data-qa="discovery-media-list-item-start-date"]',
@@ -1228,12 +1284,6 @@
     editorial: "a.meta-title",
   };
 
-  // Walk up the light DOM until we find an ancestor that actually contains
-  // the target selector. This is needed because watchlist-button sits inside
-  // <media-info-tile> whose shadow DOM slots mean a shallow .closest() call
-  // never reaches the <div class="flex-container"> that holds the caption <a>
-  // (with the date/title). We keep climbing until querySelector succeeds or
-  // we run out of ancestors.
   function nearestText(el, sel) {
     let node = el;
     while (node && node !== document.body) {
@@ -1244,7 +1294,6 @@
     return "";
   }
 
-  // FIX: nearestYear now uses the same robust 4-digit extraction.
   const nearestYear = (el) =>
     nearestText(el, SELECTORS.year).match(/\b(20\d{2}|19\d{2})\b/)?.[1] || "";
   const nearestTitle = (el) => nearestText(el, SELECTORS.title);
@@ -1450,23 +1499,67 @@
     if (IS_EDITORIAL) processEditorialPage();
   }
 
-  // ─── Target Site: Auto-Search via Hash ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── LIVE-SEARCH HASH FILLER (generic, works on ANY site) ─────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // No site is hardcoded here. When an Alt URL built via the 🔎 checkbox is
+  // opened (or any manually written "#rt-live-search=<query>" link), this
+  // runs on THAT destination site — whatever domain it is — looks for a
+  // search box using common heuristics, types the query in, and fires the
+  // events most site JS listens for so their own live/AJAX search kicks in.
 
-  function autoFillTargetSearch() {
+  function findSearchInput() {
+    const selectors = [
+      'input[type="search"]',
+      'input[name*="search" i]',
+      'input[id*="search" i]',
+      'input[placeholder*="search" i]',
+      'input[aria-label*="search" i]',
+      'form[role="search"] input[type="text"]',
+      'input[type="text"]',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      // Skip inputs that aren't actually visible/rendered.
+      if (el && el.offsetParent !== null) return el;
+    }
+    return null;
+  }
+
+  function tryLiveSearchFill() {
+    if (!ENABLE_LIVE_SEARCH_live) return;
     const hash = decodeURIComponent(location.hash);
-    const match = hash.match(/^#torrent-search=(.+)$/);
+    // Accepts the new generic key, plus the old hardcoded key for any
+    // links you may have saved from before this update.
+    const match = hash.match(/^#(?:rt-live-search|torrent-search)=(.+)$/);
     if (!match) return;
     const query = match[1].replace(/\+/g, " ");
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 80; // ~8s at 100ms, then give up quietly
     const interval = setInterval(() => {
-      const input = document.querySelector('input[type="search"].form-control');
-      if (!input) return;
+      attempts++;
+      const input = findSearchInput();
+      if (!input) {
+        if (attempts >= MAX_ATTEMPTS) clearInterval(interval);
+        return;
+      }
       clearInterval(interval);
-      const panel = document.querySelector(".float-search");
-      if (panel) panel.style.display = "block";
       input.focus();
       input.value = query;
       ["input", "keyup", "change"].forEach((t) =>
         input.dispatchEvent(new Event(t, { bubbles: true })),
+      );
+      // Some sites only react to an actual Enter keypress.
+      ["keydown", "keyup"].forEach((t) =>
+        input.dispatchEvent(
+          new KeyboardEvent(t, {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            bubbles: true,
+          }),
+        ),
       );
       history.replaceState(null, "", location.pathname + location.search);
     }, 100);
@@ -1474,13 +1567,14 @@
 
   // ─── Init ─────────────────────────────────────────────────────────────────
 
-  const TARGET_HOSTNAME = new URL(TARGET_ORIGIN).hostname;
+  const RT_HOSTS = ["www.rottentomatoes.com", "editorial.rottentomatoes.com"];
+  const IS_RT = RT_HOSTS.includes(location.hostname);
 
-  if (location.hostname === TARGET_HOSTNAME) {
-    document.readyState === "complete"
-      ? autoFillTargetSearch()
-      : window.addEventListener("load", autoFillTargetSearch, { once: true });
-  } else {
+  if (IS_RT) {
+    cookieObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
     const mainObserver = new MutationObserver(processElements);
     function init() {
       removeCookieBanner();
@@ -1490,5 +1584,11 @@
     document.readyState === "complete"
       ? init()
       : window.addEventListener("load", init, { once: true });
+  } else {
+    // Any other site: only act if a live-search hash is present. Otherwise
+    // the script does nothing at all here.
+    document.readyState === "complete"
+      ? tryLiveSearchFill()
+      : window.addEventListener("load", tryLiveSearchFill, { once: true });
   }
 })();
