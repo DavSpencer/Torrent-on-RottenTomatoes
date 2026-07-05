@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torrent on RottenTomatoes
 // @namespace    http://tampermonkey.net/
-// @version      2.43
+// @version      2.44
 // @description  Adds torrent search icons on Rotten Tomatoes. Removes cookie consent popup. Generic live-search hash injection works on ANY site with a search box (no hardcoded target). Shows IMDb rating. Fully configurable via Tampermonkey menu.
 // @author       Micro
 // @match        https://www.rottentomatoes.com/*
@@ -255,6 +255,11 @@
             .rt-toggle.rt-on { background:#2d5a1b; }
             .rt-toggle.rt-on::after { background:#5cb85c; transform:translateX(12px); }
 
+            .rt-ls-btn { width:22px; height:22px; display:flex; align-items:center; justify-content:center; background:#16171a; border:1px solid #333; border-radius:6px; color:#555; cursor:pointer; transition:all .15s; padding:0; flex-shrink:0; }
+            .rt-ls-btn:hover:not(:disabled) { border-color:#555; color:#aaa; }
+            .rt-ls-btn.rt-ls-on { background:rgba(245,197,24,.14); border-color:#f5c518; color:#f5c518; box-shadow:0 0 0 1px rgba(245,197,24,.25) inset; }
+            .rt-ls-btn:disabled { opacity:.2; cursor:not-allowed; }
+
             .rt-icon-btn { background:none; border:none; font-size:14px; cursor:pointer; color:#555; padding:2px; border-radius:4px; transition:color .15s,background .15s; display:flex; align-items:center; justify-content:center; width:28px; height:28px; }
             .rt-icon-btn:hover { background:#2c2d31; color:#ccc; }
             .rt-icon-btn.rt-del:hover { color:#e54a4a; }
@@ -297,7 +302,7 @@
             <div id="rt-cfg-header">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
                 <h2>Torrent on RottenTomatoes</h2>
-                <span class="rt-ver">v2.43 — Settings</span>
+                <span class="rt-ver">v2.46 — Settings</span>
                 <button id="rt-cfg-close" title="Close (Esc)">✕</button>
             </div>
             <div id="rt-cfg-tabs">
@@ -482,32 +487,40 @@
         });
         dcWrap.appendChild(dcCheck);
 
-        // ── Live Search checkbox ──────────────────────────────────────────
-        // Ticking this derives the icon's domain from its main URL and
+        // ── Live Search toggle ─────────────────────────────────────────────
+        // Enabling this derives the icon's domain from its main URL and
         // auto-fills the Alt URL with a generic "#rt-live-search=" hash
         // link. No site is hardcoded — any domain works as long as this
         // script (broad @match) can find a search box there at runtime.
-        const lsWrap = document.createElement("label");
+        // Styled as a small magnifying-glass toggle button rather than a
+        // plain checkbox so its on/off state reads clearly at a glance.
+        const lsWrap = document.createElement("div");
         lsWrap.style.cssText =
-          "display:flex;align-items:center;justify-content:center;cursor:pointer;";
-        lsWrap.title = isCopy
+          "display:flex;align-items:center;justify-content:center;";
+        const lsBtn = document.createElement("button");
+        lsBtn.type = "button";
+        lsBtn.className = "rt-ls-btn" + (ic.liveSearch ? " rt-ls-on" : "");
+        lsBtn.disabled = isCopy;
+        lsBtn.innerHTML =
+          '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        lsBtn.title = isCopy
           ? "Not applicable to this icon"
-          : "Auto-fill Alt URL with a live-search link for this icon's site. Alt+click will try to type your query into that site's own search box.";
-        const lsCheck = document.createElement("input");
-        lsCheck.type = "checkbox";
-        lsCheck.checked = !!ic.liveSearch;
-        lsCheck.disabled = isCopy;
-        lsCheck.style.cssText =
-          "accent-color:#f5c518;width:13px;height:13px;cursor:pointer;";
-        lsCheck.addEventListener("change", (e) => {
-          draft.icons[idx].liveSearch = e.target.checked;
-          if (e.target.checked) {
+          : ic.liveSearch
+            ? "Live Search enabled — click to disable"
+            : "Enable Live Search: auto-fills the Alt URL with a link that types your query into this site's own search box.";
+        lsBtn.addEventListener("click", () => {
+          draft.icons[idx].liveSearch = !draft.icons[idx].liveSearch;
+          if (draft.icons[idx].liveSearch) {
+            // First click (turning on): derive and fill the Alt URL.
             const generated = computeLiveSearchAltUrl(draft.icons[idx].url);
             if (generated) draft.icons[idx].urlAlt = generated;
+          } else {
+            // Second click (turning off): clear the auto-filled Alt URL.
+            draft.icons[idx].urlAlt = "";
           }
           buildIconRows();
         });
-        lsWrap.appendChild(lsCheck);
+        lsWrap.appendChild(lsBtn);
 
         const toggle = document.createElement("button");
         toggle.className = "rt-toggle" + (ic.enabled ? " rt-on" : "");
@@ -744,7 +757,8 @@
       });
 
       // 2. Title-page icon row (slot="affiliate-icon-custom"): re-read
-      //    title+year from the scorecard's media-hero attributes.
+      //    title+year from the scorecard's media-hero attributes, and
+      //    refresh the inline IMDb badge alongside it.
       const scorecard = document.querySelector("media-scorecard");
       if (scorecard) {
         const oldAffRow = scorecard.querySelector(
@@ -772,6 +786,7 @@
             );
             newRow.setAttribute("slot", "affiliate-icon-custom");
             oldAffRow.replaceWith(newRow);
+            injectTitlePageImdbBadge(scorecard, rawName, rawYear);
           }
         }
       }
@@ -978,23 +993,57 @@
 
   // ─── IMDb Badge ───────────────────────────────────────────────────────────
 
-  function buildImdbBadge(imdbRating, imdbID) {
-    const wrap = document.createElement("div");
-    wrap.className = "rt-imdb-badge";
-    wrap.style.cssText =
-      "display:inline-flex;align-items:center;gap:2px;cursor:pointer;flex-shrink:0;";
-    const icon = document.createElement("span");
-    icon.style.cssText =
-      "display:inline-flex;align-items:center;width:1rem;height:1rem;flex-shrink:0;";
-    icon.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;" aria-hidden="true">
+  const IMDB_STAR_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;" aria-hidden="true">
             <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
                      fill="#F5C518" stroke="#c9a800" stroke-width="0.5" stroke-linejoin="round"/></svg>`;
-    const text = document.createElement("span");
-    text.textContent = imdbRating;
-    text.style.cssText =
-      "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:500;font-size:1rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
-    wrap.appendChild(icon);
-    wrap.appendChild(text);
+
+  // opts: { iconSize, big }. `big` renders a full RT-style score block
+  // (large icon + large number + small label underneath, matching the
+  // Tomatometer/Popcornmeter columns) for the title page. Without it,
+  // renders the original compact inline badge used on browse-page
+  // caption links. A bare string is still accepted as shorthand for
+  // { iconSize } to keep older call sites working.
+  function buildImdbBadge(imdbRating, imdbID, opts) {
+    const options = typeof opts === "string" ? { iconSize: opts } : opts || {};
+    const { iconSize = "1rem", big = false } = options;
+
+    const wrap = document.createElement("div");
+    wrap.className = "rt-imdb-badge" + (big ? " rt-imdb-badge-lg" : "");
+
+    if (big) {
+      wrap.style.cssText = "display:flex;align-items:center;cursor:pointer;";
+      const icon = document.createElement("span");
+      icon.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:${iconSize};height:${iconSize};flex-shrink:0;`;
+      icon.innerHTML = IMDB_STAR_SVG;
+      const textWrap = document.createElement("div");
+      textWrap.style.cssText =
+        "display:flex;flex-direction:column;margin-left:12px;overflow:hidden;";
+      const scoreText = document.createElement("span");
+      scoreText.textContent = imdbRating;
+      scoreText.style.cssText =
+        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:600;font-size:1.375rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
+      const label = document.createElement("span");
+      label.textContent = "IMDb Rating";
+      label.style.cssText =
+        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:400;font-size:0.75rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;margin-top:4px;";
+      textWrap.appendChild(scoreText);
+      textWrap.appendChild(label);
+      wrap.appendChild(icon);
+      wrap.appendChild(textWrap);
+    } else {
+      wrap.style.cssText =
+        "display:inline-flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;";
+      const icon = document.createElement("span");
+      icon.style.cssText = `display:inline-flex;align-items:center;width:${iconSize};height:${iconSize};flex-shrink:0;`;
+      icon.innerHTML = IMDB_STAR_SVG;
+      const text = document.createElement("span");
+      text.textContent = imdbRating;
+      text.style.cssText =
+        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:500;font-size:1rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
+      wrap.appendChild(icon);
+      wrap.appendChild(text);
+    }
+
     if (imdbID) {
       wrap.title = `IMDb: ${imdbRating} — click to open`;
       wrap.addEventListener("click", (e) => {
@@ -1004,6 +1053,98 @@
       });
     }
     return wrap;
+  }
+
+  // Title-page variant: mirrors the Tomatometer/Popcornmeter block styling
+  // — a big icon (2.5rem, same as score-icon-critics/audience) next to a
+  // stacked text column with the rating on top (1.375rem, same size as
+  // the score percentage) and a small "IMDB Rating" label underneath
+  // (0.75rem, same size/weight as "Tomatometer"/"Popcornmeter").
+  function buildImdbBadgeLarge(imdbRating, imdbID) {
+    const wrap = document.createElement("div");
+    wrap.className = "rt-imdb-badge";
+    wrap.style.cssText =
+      "display:flex;align-items:flex-start;gap:8px;cursor:pointer;flex-shrink:0;";
+
+    const icon = document.createElement("span");
+    icon.style.cssText =
+      "display:inline-flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;flex-shrink:0;";
+    icon.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;" aria-hidden="true">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+                     fill="#F5C518" stroke="#c9a800" stroke-width="0.6" stroke-linejoin="round"/></svg>`;
+
+    const textWrap = document.createElement("div");
+    textWrap.style.cssText =
+      "display:flex;flex-direction:column;overflow:hidden;";
+
+    const scoreText = document.createElement("span");
+    scoreText.textContent = imdbRating;
+    scoreText.style.cssText =
+      "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:500;font-size:1.375rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
+
+    const typeText = document.createElement("span");
+    typeText.textContent = "IMDB Rating";
+    typeText.style.cssText =
+      "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:500;font-size:0.75rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
+
+    textWrap.appendChild(scoreText);
+    textWrap.appendChild(typeText);
+    wrap.appendChild(icon);
+    wrap.appendChild(textWrap);
+
+    if (imdbID) {
+      wrap.title = `IMDb: ${imdbRating} — click to open`;
+      wrap.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        open(`https://www.imdb.com/title/${imdbID}/`, "_blank");
+      });
+    }
+    return wrap;
+  }
+
+  // Inserts (or refreshes) the IMDb rating block directly into the RT
+  // scorecard's shadow DOM, as the last item inside ".audience-score-wrap"
+  // — right next to the Popcornmeter score — instead of appending it
+  // after the whole <media-scorecard> element or after the description
+  // row. Rendered as a full RT-style score block (40px star icon, large
+  // number, small "IMDb Rating" label underneath) so it matches the
+  // Tomatometer/Popcornmeter columns rather than looking like a small
+  // inline badge.
+  function injectTitlePageImdbBadge(scorecard, rawName, rawYear) {
+    const shadow = scorecard.shadowRoot;
+    if (!shadow) return;
+
+    if (!shadow.getElementById("rt-imdb-slot-style")) {
+      const slotStyle = document.createElement("style");
+      slotStyle.id = "rt-imdb-slot-style";
+      slotStyle.textContent = `
+                .audience-score-wrap{overflow:visible!important;align-items:center!important}
+                .rt-imdb-slot{display:flex!important;align-items:center!important;margin-left:20px!important;flex-shrink:0!important}
+            `;
+      shadow.appendChild(slotStyle);
+    }
+
+    (async () => {
+      const cleanTitle = rawName.replace(/[():'".\/\\|\[\]]/g, "").trim();
+      const result = await fetchImdbRating(cleanTitle, extractBareYear(rawYear));
+      if (!result) return;
+      const badge = buildImdbBadge(result.imdbRating, result.imdbID, {
+        iconSize: "2.5rem",
+        big: true,
+      });
+      let slot = shadow.querySelector(".rt-imdb-slot");
+      if (!slot) {
+        slot = document.createElement("div");
+        slot.className = "rt-imdb-slot";
+        const audienceWrap = shadow.querySelector(".audience-score-wrap");
+        (audienceWrap || shadow.querySelector(".score-wrap"))?.appendChild(
+          slot,
+        );
+      }
+      slot.innerHTML = "";
+      slot.appendChild(badge);
+    })();
   }
 
   // ─── IMDb injection for browse-page caption links ─────────────────────────
@@ -1417,30 +1558,10 @@
       row.setAttribute("slot", "affiliate-icon-custom");
       scorecard.appendChild(row);
 
-      (async () => {
-        const cleanTitle = name.replace(/[():'".\/\\|\[\]]/g, "").trim();
-        const result = await fetchImdbRating(cleanTitle, extractBareYear(year));
-        if (!result) return;
-        const badge = buildImdbBadge(result.imdbRating, result.imdbID);
-        badge.style.cssText += ";margin-left:12px;font-size:1rem;";
-        const sph = document.querySelector(
-          "score-pairs, score-pairs-deprecated",
-        );
-        if (sph) {
-          if (!sph.parentElement?.classList.contains("rt-score-row")) {
-            const sr = document.createElement("div");
-            sr.className = "rt-score-row";
-            sr.style.cssText = "display:flex;align-items:center;gap:10px;";
-            sph.replaceWith(sr);
-            sr.appendChild(sph);
-            sr.appendChild(badge);
-          } else if (!sph.parentElement.querySelector(".rt-imdb-badge")) {
-            sph.parentElement.appendChild(badge);
-          }
-        } else {
-          scorecard.after(badge);
-        }
-      })();
+      // IMDb badge is injected inline with the Tomatometer/Popcornmeter
+      // row (to the right of the RT scores), not appended after the
+      // whole scorecard element.
+      injectTitlePageImdbBadge(scorecard, name, year);
       return;
     }
     mediaHero.after(
@@ -1502,11 +1623,12 @@
   // ═══════════════════════════════════════════════════════════════════════════
   // ─── LIVE-SEARCH HASH FILLER (generic, works on ANY site) ─────────────────
   // ═══════════════════════════════════════════════════════════════════════════
-  // No site is hardcoded here. When an Alt URL built via the 🔎 checkbox is
-  // opened (or any manually written "#rt-live-search=<query>" link), this
-  // runs on THAT destination site — whatever domain it is — looks for a
-  // search box using common heuristics, types the query in, and fires the
-  // events most site JS listens for so their own live/AJAX search kicks in.
+  // No site is hardcoded here. When an Alt URL built via the 🔎 Live Search
+  // toggle is opened (or any manually written "#rt-live-search=<query>"
+  // link), this runs on THAT destination site — whatever domain it is —
+  // looks for a search box using common heuristics, types the query in,
+  // and fires the events most site JS listens for so their own
+  // live/AJAX search kicks in.
 
   function findSearchInput() {
     const selectors = [
