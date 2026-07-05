@@ -101,7 +101,7 @@ Use these placeholders when adding a custom site:
 
 ---
 
-## Changelog
+## Previous Changelog
 
 ### v2.42
 - Fix: Save & Apply rebuilds icons in-place — no page refresh needed
