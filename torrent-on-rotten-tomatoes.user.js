@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torrent on RottenTomatoes
 // @namespace    http://tampermonkey.net/
-// @version      2.44
+// @version      2.45
 // @description  Adds torrent search icons on Rotten Tomatoes. Removes cookie consent popup. Generic live-search hash injection works on ANY site with a search box (no hardcoded target). Shows IMDb rating. Fully configurable via Tampermonkey menu.
 // @author       Micro
 // @match        https://www.rottentomatoes.com/*
@@ -112,8 +112,9 @@
   const DEFAULT_SETTINGS = {
     omdbApiKey: "",
     domainCheckTimeout: 4000,
-    cacheTtlDays: 15,
+    cacheTtlDays: 7,
     enableLiveSearch: true,
+    debugMode: false,
     icons: DEFAULT_ICONS,
   };
 
@@ -302,7 +303,7 @@
             <div id="rt-cfg-header">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
                 <h2>Torrent on RottenTomatoes</h2>
-                <span class="rt-ver">v2.46 — Settings</span>
+                <span class="rt-ver">v2.49 — Settings</span>
                 <button id="rt-cfg-close" title="Close (Esc)">✕</button>
             </div>
             <div id="rt-cfg-tabs">
@@ -388,6 +389,27 @@
                         <div class="rt-field-row">
                             <label>Enable Live Search</label>
                             <input type="checkbox" id="rt-cfg-livesearch-enabled" style="accent-color:#f5c518;width:15px;height:15px;cursor:pointer;" />
+                        </div>
+                    </fieldset>
+                    <fieldset class="rt-field-group">
+                        <legend>Debug</legend>
+                        <div class="rt-field-row">
+                            <label style="font-size:11px;color:#666;min-width:0;flex:1">
+                                When enabled, every IMDb rating lookup is logged to the browser console (F12 → Console tab) — the exact title/year tried, each OMDb strategy attempted, its raw response, and why a title ultimately got no rating (missing API key, no OMDb match, rate limit, etc). Useful for figuring out why a specific title isn't showing a rating.
+                            </label>
+                        </div>
+                        <div class="rt-field-row">
+                            <label>Enable debug logging</label>
+                            <input type="checkbox" id="rt-cfg-debug-enabled" style="accent-color:#f5c518;width:15px;height:15px;cursor:pointer;" />
+                        </div>
+                        <div class="rt-field-row">
+                            <label style="font-size:11px;color:#666;min-width:0;flex:1">
+                                A title that failed to find a rating gets cached as "no match" for the rating cache duration above, so re-checking it in the console will just show a cache hit. Clear the cache first to force a fresh lookup.
+                            </label>
+                        </div>
+                        <div class="rt-field-row">
+                            <button class="rt-btn rt-btn-ghost" id="rt-cfg-clear-cache-btn" type="button">🗑 Clear IMDb rating cache</button>
+                            <span id="rt-cfg-clear-cache-status" style="font-size:11px;color:#5cb85c;"></span>
                         </div>
                     </fieldset>
                 </div>
@@ -687,13 +709,15 @@
     document.getElementById("rt-cfg-timeout").value = draft.domainCheckTimeout;
     document.getElementById("rt-cfg-livesearch-enabled").checked =
       draft.enableLiveSearch !== false;
+    document.getElementById("rt-cfg-debug-enabled").checked =
+      draft.debugMode === true;
     document.getElementById("rt-cfg-omdb").addEventListener("input", (e) => {
       draft.omdbApiKey = e.target.value.trim();
     });
     document
       .getElementById("rt-cfg-cache-ttl")
       .addEventListener("input", (e) => {
-        draft.cacheTtlDays = Math.max(1, parseInt(e.target.value) || 15);
+        draft.cacheTtlDays = Math.max(1, parseInt(e.target.value) || 7);
       });
     document.getElementById("rt-cfg-timeout").addEventListener("input", (e) => {
       draft.domainCheckTimeout = Math.max(
@@ -705,6 +729,29 @@
       .getElementById("rt-cfg-livesearch-enabled")
       .addEventListener("change", (e) => {
         draft.enableLiveSearch = e.target.checked;
+      });
+    document
+      .getElementById("rt-cfg-debug-enabled")
+      .addEventListener("change", (e) => {
+        draft.debugMode = e.target.checked;
+      });
+    document
+      .getElementById("rt-cfg-clear-cache-btn")
+      .addEventListener("click", () => {
+        let count = 0;
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(CACHE_PREFIX)) {
+            localStorage.removeItem(key);
+            count++;
+          }
+        }
+        memCache.clear();
+        const status = document.getElementById("rt-cfg-clear-cache-status");
+        status.textContent = `✓ Cleared ${count} cached lookup${count === 1 ? "" : "s"}`;
+        setTimeout(() => {
+          status.textContent = "";
+        }, 3000);
       });
 
     document.querySelectorAll(".rt-tab").forEach((tab) => {
@@ -735,6 +782,7 @@
       OMDB_API_KEY_live = CFG.omdbApiKey;
       CACHE_TTL_MS_live = CFG.cacheTtlDays * 24 * 3600 * 1000;
       ENABLE_LIVE_SEARCH_live = CFG.enableLiveSearch !== false;
+      DEBUG_MODE_live = CFG.debugMode === true;
 
       // ── Rebuild all injected UI in-place, no page refresh needed ──
 
@@ -821,6 +869,7 @@
         draft.domainCheckTimeout;
       document.getElementById("rt-cfg-livesearch-enabled").checked =
         draft.enableLiveSearch;
+      document.getElementById("rt-cfg-debug-enabled").checked = draft.debugMode;
       buildIconRows();
     });
 
@@ -854,6 +903,24 @@
   let CACHE_TTL_MS_live = CFG.cacheTtlDays * 24 * 3600 * 1000;
   let DOMAIN_CHECK_TIMEOUT = CFG.domainCheckTimeout;
   let ENABLE_LIVE_SEARCH_live = CFG.enableLiveSearch !== false;
+  let DEBUG_MODE_live = CFG.debugMode === true;
+
+  function dbgGroup(label) {
+    if (!DEBUG_MODE_live) return;
+    console.groupCollapsed(`%c[RT-Torrenter] ${label}`, "color:#f5c518");
+  }
+  function dbgGroupEnd() {
+    if (!DEBUG_MODE_live) return;
+    console.groupEnd();
+  }
+  function dbgLog(...args) {
+    if (!DEBUG_MODE_live) return;
+    console.log("[RT-Torrenter]", ...args);
+  }
+  function dbgWarn(...args) {
+    if (!DEBUG_MODE_live) return;
+    console.warn("[RT-Torrenter]", ...args);
+  }
 
   const CACHE_PREFIX = "rt_imdb_";
 
@@ -894,19 +961,54 @@
 
   async function omdbFetch(params) {
     const p = new URLSearchParams({ apikey: OMDB_API_KEY_live, ...params });
-    const r = await fetch(`https://www.omdbapi.com/?${p}`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    return d.Response === "True" ? d : null;
+    let r, d;
+    try {
+      r = await fetch(`https://www.omdbapi.com/?${p}`);
+    } catch (err) {
+      dbgWarn("Network error calling OMDb:", err, "params:", params);
+      throw err;
+    }
+    if (!r.ok) {
+      dbgWarn(
+        `OMDb HTTP ${r.status} for params:`,
+        params,
+        r.status === 401
+          ? "→ likely missing/invalid OMDb API key (set one in the Settings → General tab)"
+          : "",
+      );
+      return null;
+    }
+    d = await r.json();
+    if (d.Response !== "True") {
+      dbgLog("OMDb returned no match for params:", params, "→", d.Error || d);
+      return null;
+    }
+    dbgLog("OMDb match for params:", params, "→", {
+      Title: d.Title,
+      Year: d.Year,
+      imdbID: d.imdbID,
+      imdbRating: d.imdbRating,
+    });
+    return d;
   }
 
   async function omdbDirectLookup(title, year, type) {
     const params = { t: title };
     if (year) params.y = year;
     if (type) params.type = type;
+    dbgLog(
+      `Strategy: direct lookup (t=) title="${title}" year="${year || "any"}" type="${type || "any"}"`,
+    );
     const d = await omdbFetch(params);
     if (d && d.imdbRating && d.imdbRating !== "N/A") {
       return { imdbRating: d.imdbRating, imdbID: d.imdbID };
+    }
+    if (d && (!d.imdbRating || d.imdbRating === "N/A")) {
+      dbgLog(
+        "OMDb found the title but it has no IMDb rating yet (N/A):",
+        d.Title,
+        d.Year,
+      );
     }
     return null;
   }
@@ -915,8 +1017,13 @@
     const params = { s: title };
     if (year) params.y = year;
     if (type) params.type = type;
+    dbgLog(
+      `Strategy: fuzzy search (s=) title="${title}" year="${year || "any"}" type="${type || "any"}"`,
+    );
     const sd = await omdbFetch(params);
-    if (!sd || !Array.isArray(sd.Search) || !sd.Search.length) return null;
+    if (!sd || !Array.isArray(sd.Search) || !sd.Search.length) {
+      return null;
+    }
 
     const normQuery = normaliseTitle(title);
 
@@ -928,6 +1035,15 @@
       return { item, score };
     });
     scored.sort((a, b) => b.score - a.score);
+    dbgLog(
+      "Search candidates (top 3 tried):",
+      scored.slice(0, 3).map((s) => ({
+        title: s.item.Title,
+        year: s.item.Year,
+        imdbID: s.item.imdbID,
+        matchScore: s.score,
+      })),
+    );
 
     for (const { item } of scored.slice(0, 3)) {
       const dd = await omdbFetch({ i: item.imdbID });
@@ -943,11 +1059,31 @@
   async function fetchImdbRating(title, rtYear) {
     const cacheKey = title + "|" + (rtYear || "");
     const cached = lsGet(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      dbgGroup(`IMDb lookup: "${title}" (${rtYear || "no year"})`);
+      dbgLog(
+        cached
+          ? `Cache hit → ${cached.imdbRating}`
+          : "Cache hit → previously failed, cached as no-match (clear cache or wait for TTL to retry)",
+      );
+      dbgGroupEnd();
+      return cached;
+    }
     if (memCache.has(cacheKey)) return memCache.get(cacheKey);
+
+    if (!OMDB_API_KEY_live) {
+      dbgWarn(
+        `IMDb lookup skipped for "${title}": no OMDb API key configured. Add a free key in Settings → General → OMDb / IMDb.`,
+      );
+    }
+
+    dbgGroup(`IMDb lookup: "${title}" (${rtYear || "no year"})`);
 
     const promise = (async () => {
       const cleanTitle = title.replace(/[():'".\/\\|\[\]]/g, "").trim();
+      if (cleanTitle !== title) {
+        dbgLog(`Cleaned title for lookup: "${cleanTitle}"`);
+      }
 
       const yearCandidates = [];
       if (rtYear) {
@@ -961,6 +1097,10 @@
       yearCandidates.push("");
 
       const years = [...new Set(yearCandidates)];
+      dbgLog(
+        "Year candidates to try:",
+        years.map((y) => y || "(any)"),
+      );
 
       const strategies = [
         (y) => omdbDirectLookup(cleanTitle, y, "movie"),
@@ -976,19 +1116,30 @@
           try {
             const result = await strategy(y);
             if (result) {
+              dbgLog(`✓ Match found: ${result.imdbRating} (${result.imdbID})`);
               lsSet(cacheKey, result);
               return result;
             }
-          } catch (_) {}
+          } catch (err) {
+            dbgWarn("Strategy threw an error:", err);
+          }
         }
       }
 
+      dbgWarn(
+        `✗ No IMDb rating found for "${cleanTitle}" after trying all strategies/years. ` +
+          `If this title clearly exists on IMDb, the title text RT gives us (e.g. stylized ` +
+          `titles with symbols like "$upercapitalist" instead of "Supercapitalist") is a ` +
+          `common cause — OMDb's search didn't recognize it either.`,
+      );
       lsSet(cacheKey, null);
       return null;
     })();
 
     memCache.set(cacheKey, promise);
-    return promise;
+    const finalResult = await promise;
+    dbgGroupEnd();
+    return finalResult;
   }
 
   // ─── IMDb Badge ───────────────────────────────────────────────────────────
@@ -1021,11 +1172,11 @@
       const scoreText = document.createElement("span");
       scoreText.textContent = imdbRating;
       scoreText.style.cssText =
-        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:600;font-size:1.375rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
+        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:500;font-size:1.375rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;";
       const label = document.createElement("span");
       label.textContent = "IMDb Rating";
       label.style.cssText =
-        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:400;font-size:0.75rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;margin-top:4px;";
+        "color:var(--grayDark2,#2a2c2d);font-family:var(--franklinGothicFamily,sans-serif);font-weight:400;font-size:0.75rem;letter-spacing:0.2px;line-height:1.1;white-space:nowrap;margin-top:2px;";
       textWrap.appendChild(scoreText);
       textWrap.appendChild(label);
       wrap.appendChild(icon);
@@ -1127,7 +1278,10 @@
 
     (async () => {
       const cleanTitle = rawName.replace(/[():'".\/\\|\[\]]/g, "").trim();
-      const result = await fetchImdbRating(cleanTitle, extractBareYear(rawYear));
+      const result = await fetchImdbRating(
+        cleanTitle,
+        extractBareYear(rawYear),
+      );
       if (!result) return;
       const badge = buildImdbBadge(result.imdbRating, result.imdbID, {
         iconSize: "2.5rem",
@@ -1163,7 +1317,14 @@
       '[data-qa="discovery-media-list-item-start-date"]',
     );
     const dateText = dateEl?.textContent?.trim() || "";
-    const year = dateText.match(/\b(20\d{2}|19\d{2})\b/)?.[1] || "";
+    const dateYear = dateText.match(/\b(20\d{2}|19\d{2})\b/)?.[1] || "";
+    // The caption link's own href is the RT URL (e.g.
+    // "/m/upercapitalist_2012") and encodes the real release year.
+    // The visible date text is often a "Streaming <date>" VOD date
+    // instead, which can be years off from the actual release — so the
+    // URL year wins whenever it's present.
+    const urlYear = extractYearFromRtUrl(captionLink.getAttribute("href"));
+    const year = urlYear || dateYear;
 
     const cleanTitle = rawTitle.replace(/[():'".\/\\|\[\]]/g, "").trim();
     const result = await fetchImdbRating(cleanTitle, year);
@@ -1439,6 +1600,44 @@
     nearestText(el, SELECTORS.year).match(/\b(20\d{2}|19\d{2})\b/)?.[1] || "";
   const nearestTitle = (el) => nearestText(el, SELECTORS.title);
 
+  // RT movie/show URLs commonly end in "_YYYY" — the actual release year
+  // (e.g. "/m/upercapitalist_2012"). The visible date text on browse-page
+  // cards is unreliable for this: it's often labeled "Streaming <date>"
+  // and reflects when a title became available on VOD, not when it was
+  // released (a film from 2012 can show "Streaming Aug 11, 2016"). The
+  // URL slug doesn't have that problem, so it's checked first.
+  function extractYearFromRtUrl(url) {
+    if (!url) return "";
+    const path = url.split(/[?#]/)[0];
+    const m = path.match(/_(\d{4})\/?$/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      if (y >= 1900 && y <= 2100) return m[1];
+    }
+    return "";
+  }
+
+  function nearestMediaUrl(el) {
+    let node = el;
+    while (node && node !== document.body) {
+      const found = node.querySelector(
+        'poster-tile[media-url], a[data-qa="discovery-media-list-item-caption"], a.js-tile-link[href]',
+      );
+      if (found) {
+        return (
+          found.getAttribute("media-url") || found.getAttribute("href") || ""
+        );
+      }
+      node = node.parentElement;
+    }
+    return "";
+  }
+
+  // Prefer the release year encoded in the RT URL slug; fall back to the
+  // nearest visible date text only if the URL doesn't yield one.
+  const nearestReleaseYear = (el) =>
+    extractYearFromRtUrl(nearestMediaUrl(el)) || nearestYear(el);
+
   function titlePageYear() {
     try {
       const json = JSON.parse(
@@ -1578,7 +1777,7 @@
       const name = btn.getAttribute("media-title") || nearestTitle(btn);
       if (!name || btn.dataset.iconsAdded) return;
       btn.dataset.iconsAdded = "1";
-      const year = nearestYear(btn);
+      const year = nearestReleaseYear(btn);
       const slotName = btn.getAttribute("slot");
       const row = buildIconRow(name, year, "margin-top:8px;");
       row.dataset.rtIconRow = "1";
