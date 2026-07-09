@@ -2,7 +2,7 @@
 
 > Torrent search icons injected directly into [Rotten Tomatoes](https://www.rottentomatoes.com/) — browse, find, grab.
 
-![Version](https://img.shields.io/badge/version-2.43-green)
+![Version](https://img.shields.io/badge/version-2.45-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Platform](https://img.shields.io/badge/platform-Tampermonkey%20%7C%20Violentmonkey-orange)
 
